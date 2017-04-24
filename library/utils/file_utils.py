@@ -1,6 +1,3 @@
-print(__doc__)
-
-
 import urllib.request as url_req
 import os, shutil
 import hashlib
