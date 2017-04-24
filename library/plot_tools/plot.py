@@ -1,5 +1,3 @@
-# Source:  http://scikit-learn.org/stable/auto_examples/model_selection/plot_confusion_matrix.html#sphx-glr-auto-examples-model-selection-plot-confusion-matrix-py
-
 import matplotlib.pyplot as plt
 import seaborn as sns
 from bokeh import mpl
@@ -14,8 +12,13 @@ import itertools
 from sklearn.metrics import confusion_matrix
 
 
-def plot_confusion_matrix(y_test, y_pred, classes=[], normalize=False, fig_size=(8,6),
-                          title='Confusion matrix', cmap=plt.cm.Blues, plot_lib='matplotlib', matplotlib_style='default'):
+def plot_confusion_matrix(y_test, y_pred,
+                          classes=[], normalize=False,
+                          fig_size=(8,6),
+                          title='Confusion matrix',
+                          cmap=plt.cm.Blues,
+                          plot_lib='matplotlib',
+                          matplotlib_style='default'):
     cm = confusion_matrix(y_test, y_pred)
     if len(classes) == 0:
         classes = list(range(cm.shape[0]))
@@ -53,9 +56,12 @@ def plot_confusion_matrix(y_test, y_pred, classes=[], normalize=False, fig_size=
         sns.plt.show()
 
 
-def plot_variance(scores, means, stds, legend=['Legend1', 'Legend2'], colors=['blue', 'green'],
+def plot_variance(scores, means, stds,
+                  legend=['Legend1', 'Legend2'],
+                  colors=['blue', 'green'],
                   plot_title=['Title1', 'Title2'],
-                  plot_xlabel=['X'], plot_ylabel=['Y'], plot_lib='matplotlib', matplotlib_style='default',
+                  plot_xlabel=['X'], plot_ylabel=['Y'],
+                  plot_lib='matplotlib', matplotlib_style='default',
                   type='fill', fig_size=(8,6), bokeh_notebook=False):
     if plot_lib == 'matplotlib':
         plt.style.use(matplotlib_style)
@@ -64,9 +70,10 @@ def plot_variance(scores, means, stds, legend=['Legend1', 'Legend2'], colors=['b
             if type == 'errorbar':
                 plt.errorbar(np.arange(len(means[:,i])), means[:,i], stds[:,i])
             if type == 'fill':
-                plt.fill_between(np.arange(len(means[:,i])), means[:,i] - stds[:,i], means[:,i] + stds[:,i],
+                plt.fill_between(np.arange(len(means[:,i])), means[:,i]-stds[:,i], means[:,i]+stds[:,i],
                                  alpha=0.1, color='b')
-            plt.plot(np.arange(len(means[:,i])), means[:,i], 'o-', color='b', label='Training score')
+            plt.plot(np.arange(len(means[:,i])), means[:,i], 'o-',
+                     color='b', label='Training score')
         plt.title(plot_title)
         plt.xlabel(plot_xlabel)
         plt.ylabel(plot_ylabel)
@@ -104,13 +111,16 @@ def plot_variance(scores, means, stds, legend=['Legend1', 'Legend2'], colors=['b
                 ]
             )
             p = figure(title='errorbars with bokeh', width=600, height=400,
-                       tools=[hover, PanTool(), BoxZoomTool(), ResetTool(), WheelZoomTool(), SaveTool()])
+                       tools=[hover, PanTool(), BoxZoomTool(), ResetTool(),
+                              WheelZoomTool(), SaveTool()])
             p.xaxis.axis_label = plot_xlabel[i]
             p.yaxis.axis_label = plot_ylabel[i]
             p.title.text = plot_title[i]
             p.background_fill = 'beige'
-            p.circle(np.arange(num_splits), means[:, i].T, color=colors[i], size=5, line_alpha=0, source=source)
-            p.line(np.arange(num_splits), means[:, i].T, color=colors[i], legend=legend[i], source=source)
+            p.circle(np.arange(num_splits), means[:, i].T,
+                     color=colors[i], size=5, line_alpha=0, source=source)
+            p.line(np.arange(num_splits), means[:, i].T,
+                   color=colors[i], legend=legend[i], source=source)
             plot_fig.append(p)
         for i in range(num_exp):
             for x, y, yerr in zip(np.arange(num_splits), means[:, i].T, stds[:, i].T):
@@ -126,14 +136,22 @@ def plot_variance(scores, means, stds, legend=['Legend1', 'Legend2'], colors=['b
         show(grid)
 
 
-def plot_accuracy(scores, legend=['Legend1', 'Legend2'], colors=['blue', 'green'], plot_title='Title',
-                  plot_xlabel='X', plot_ylabel='Y', plot_lib='matplotlib', matplotlib_style='default',
-                  fig_size=(800,600), bokeh_notebook=False):
+def plot_scores(scores,
+                legend=['Legend1', 'Legend2'],
+                colors=['blue', 'green'], plot_title='Title',
+                plot_xlabel='X', plot_ylabel='Y',
+                plot_lib='matplotlib', matplotlib_style='default',
+                fig_size=(800,600), bokeh_notebook=False):
+    if len(legend) == 0:
+        for i in range(scores.shape[0]):
+            legend.append('Legend ' + str(i))
+    if len(colors) == 0:
+        colors = ['blue', 'green', 'red', 'mediumvioletred', 'magenta', 'sienna', 'maroon', 'brown']
     if plot_lib == 'matplotlib':
         plt.style.use(matplotlib_style)
         plt.grid()
         for i in range(scores.shape[0]):
-            plt.plot(np.arange(len(scores[:,i])), scores[:,i], 'o-', color=colors[i], label=legend[i])
+            plt.plot(np.arange(len(scores[i,:])), scores[i,:], '-', color=colors[i], label=legend[i])
         plt.title(plot_title)
         plt.xlabel(plot_xlabel)
         plt.ylabel(plot_ylabel)
@@ -172,6 +190,6 @@ def plot_accuracy(scores, legend=['Legend1', 'Legend2'], colors=['blue', 'green'
                     y=scores[:, i],
                 )
             )
-            p.circle(np.arange(num_splits), scores[:, i], color=colors[i], size=5, line_alpha=0, source=source)
-            p.line(np.arange(num_splits), scores[:, i], color=colors[i], legend=legend[i], source=source)
+            p.circle(np.arange(num_splits), scores[i,:], color=colors[i], size=5, line_alpha=0, source=source)
+            p.line(np.arange(num_splits), scores[i,:], color=colors[i], legend=legend[i], source=source)
         show(p)
