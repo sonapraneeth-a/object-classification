@@ -42,9 +42,14 @@ def activation_layer(input, activation_type='relu', activation_name=''):
     return layer
 
 
-def mlp_layer(prev_layer, weight, bias, activation_type='sigmoid', layer_name='mlp_layer'):
-    var = tf.add(tf.matmul(prev_layer, weight), bias)
-    layer = activation_layer(var, activation_name=layer_name)
+def mlp_layer(prev_layer, weight, bias, activation_type='sigmoid',
+              layer_name='mlp_layer'):
+    var = tf.nn.xw_plus_b(prev_layer, weight, bias, name=layer_name)
+    if activation_type != '':
+        layer = activation_layer(var, activation_type=activation_type,
+                                 activation_name=layer_name)
+    else:
+        layer = var
     return layer
 
 
@@ -73,7 +78,8 @@ def convolve(input, weight, bias, strides=1, activation_type='relu', conv_layer_
 
 
 def maxpool_layer(input, overlap=2, stride=2, padding_type='SAME'):
-    return tf.nn.max_pool(input, ksize=[1, overlap, overlap, 1], strides=[1, stride, stride, 1],
+    return tf.nn.max_pool(input, ksize=[1, overlap, overlap, 1],
+                          strides=[1, stride, stride, 1],
                           padding=padding_type)
 
 
