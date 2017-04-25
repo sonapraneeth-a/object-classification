@@ -2,7 +2,6 @@ from library.utils import file_utils
 import os, shutil, time, matplotlib
 import numpy as np
 from scipy.misc import toimage
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import Grid
 from library.datasets.dataset import Dataset
