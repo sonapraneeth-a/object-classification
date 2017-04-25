@@ -1,4 +1,7 @@
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib
+from scipy.misc import toimage
 import tensorflow as tf
 from sklearn.metrics import classification_report, accuracy_score
 from sklearn.model_selection import train_test_split
@@ -220,10 +223,16 @@ class LinearClassifier:
         with tf.device(self.device):
             self.init_var = tf.global_variables_initializer()
         # Step 7: Initiate Session
+        config = tf.ConfigProto(
+            log_device_placement=True,
+            allow_soft_placement=True,
+            # allow_growth=True,
+            # device_count={'GPU': 0}
+        )
         if self.session_type == 'default':
-            self.session = tf.Session()
+            self.session = tf.Session(config=config)
         if self.session_type == 'interactive':
-            self.session = tf.InteractiveSession()
+            self.session = tf.InteractiveSession(config=config)
         print('Session: ' + str(self.session))
         self.session.run(self.init_var)
         # Step 8: Initiate logs
@@ -424,6 +433,40 @@ class LinearClassifier:
                          colors=['blue', 'green'], plot_title='Accuarcy of linear classifier',
                          plot_xlabel='No. of iterations', plot_ylabel='Accuracy',
                          plot_lib='matplotlib', matplotlib_style='default')
+        return True
+
+    def plot_weights(self, classes=[], fig_size=(16,12), fontsize=10):
+        weights = self.session.run(self.model_params['weight'])
+        if len(classes) == 0:
+            classes = []
+            for image_no in range(10):
+                classes.append('Class ' + str(image_no))
+        images = []
+        for image_no in range(10):
+            images.append(weights[:, image_no].reshape([3, 32, 32]).transpose([1, 2, 0]))
+        images = np.array(images)
+        fig, axes = plt.subplots(1, 10)
+        if fig_size is not None:
+            fig.set_figheight(fig_size[0])
+            fig.set_figwidth(fig_size[1])
+        fig.subplots_adjust(hspace=0.1, wspace=0.1)
+        type = 'rgb'
+        for image_no, ax in enumerate(axes.flat):
+            # Plot image.
+            image = images[image_no, :]
+            if type == 'rgb':
+                ax.imshow(toimage(image), cmap='binary')
+            elif type == 'grey':
+                ax.imshow(toimage(image), cmap=matplotlib.cm.Greys_r)
+            else:
+                ax.imshow(image, cmap='binary')
+            ax.set_xlabel(classes[image_no], weight='bold', size=fontsize)
+            # Remove ticks from the plot.
+            ax.set_xticks([])
+            ax.set_yticks([])
+        # plt.title('Learnt weights from linear classifier')
+        # plt.tight_layout()
+        plt.show()
         return True
 
     def restore_model(self):
