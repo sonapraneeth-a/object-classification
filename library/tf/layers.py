@@ -33,10 +33,10 @@ def activation_layer(input, activation_type='relu', activation_name=''):
         activation_name = activation_type
     if activation_type == 'sigmoid':
         layer = tf.nn.sigmoid(input, name=activation_name)
-    elif activation_type == 'softmax':
-        layer = tf.nn.softmax(input, name=activation_name)
     elif activation_type == 'relu':
         layer = tf.nn.relu(input, name=activation_name)
+    elif activation_type == 'tanh':
+        layer = tf.nn.tanh(input, name=activation_name)
     else:
         layer = tf.nn.relu(input, name=activation_name)
     return layer
@@ -72,14 +72,14 @@ def optimize_algo(learning_rate=0.001, descent_method='gradient',
 
 
 def convolve(input, weight, bias, strides=1, activation_type='relu', conv_layer_name=''):
-    x = tf.nn.conv2d(input, weight, strides=[1, strides, strides, 1], padding='SAME')
+    x = tf.nn.conv3d(input, weight, strides=[1, strides, strides, strides, 1], padding='SAME')
     x = tf.nn.bias_add(x, bias)
     return activation_layer(x, activation_type=activation_type, activation_name=conv_layer_name)
 
 
 def maxpool_layer(input, overlap=2, stride=2, padding_type='SAME'):
-    return tf.nn.max_pool(input, ksize=[1, overlap, overlap, 1],
-                          strides=[1, stride, stride, 1],
+    return tf.nn.max_pool3d(input, ksize=[1, overlap, overlap, overlap, 1],
+                          strides=[1, stride, stride, stride, 1],
                           padding=padding_type)
 
 
@@ -88,10 +88,9 @@ def conv_layer(input, weight_shape, bias_shape,
                stride=2):
     weight = weights(weight_shape, weight_type=weight_type, weight_name='weight')
     bias = biases(bias_shape, bias_type=bias_type, bias_name='bias')
-    layer = convolve(input, weight, bias)
-    layer = maxpool_layer(layer, stride=stride)
+    layer = convolve(input, weight, bias, strides=stride)
     return layer
 
 
-def batch_norm_layer():
-    return True
+def batch_norm_layer(input):
+    return  tf.nn.batch_normalization(input)
