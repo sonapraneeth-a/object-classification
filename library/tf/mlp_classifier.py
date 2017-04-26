@@ -1,5 +1,6 @@
 import numpy as np
 import tensorflow as tf
+from tensorflow.python.framework import graph_util
 from sklearn.metrics import classification_report, accuracy_score
 from sklearn.model_selection import train_test_split
 from library.tf.parameters import Weights, Bias
@@ -27,10 +28,12 @@ class MLPClassifier:
                  logs=True,
                  log_dir='./logs/',
                  test_log=False,
-                 save_model=False,
-                 model_name='./model/mlp_classifier_model.ckpt',
-                 restore=True,
+                 save_model=True,
+                 save_checkpoint=True,
+                 checkpoint_filename='mlp_classifier_model.ckpt',
+                 model_name='mlp_classifier_model.pb',
                  descent_method='gradient',
+                 restore=False,
                  config={'layer_1': {'weight': {'name': 'Weight_1', 'type': 'random_normal'},
                                      'bias': {'name': 'Bias_1', 'type': 'random_normal'},
                                      'activation_fn': 'sigmoid',
@@ -41,8 +44,8 @@ class MLPClassifier:
                                           'bias': {'name': 'Output_Bias', 'type': 'random_normal'},
                                           'activation_fn': 'sigmoid',
                                           'layer_name': 'Output_Layer'
-                                         },
-                         'descent_method': 'gradient'},
+                                         }
+                         },
                  ):
         self.verbose = verbose
         # Classifier Parameter configuration
@@ -78,8 +81,10 @@ class MLPClassifier:
         self.test_log = test_log
         # Model Parameters
         self.save_model = save_model
+        self.save_checkpoint = save_checkpoint
         self.model = None
         self.model_name = model_name
+        self.checkpoint_filename = checkpoint_filename
         self.restore = restore
         self.current_learn_rate = None
         self.last_epoch = None
@@ -535,6 +540,9 @@ class MLPClassifier:
             epoch += 1
         end = time.time()
         print('Fit completed in %.4f seconds' % (end - start))
+        if self.save_model is True:
+            print('Saving the graph to %s' % (self.logging_dir+'/'+self.model_name))
+            self.freeze_graph(self.logging_dir)
 
     def predict(self, data):
         feed_dict_data = {self.predict_params['input']: data}
@@ -610,8 +618,29 @@ class MLPClassifier:
             file_utils.delete_all_files_in_dir(self.logging_dir)
             print('Restoring cannot be done')
 
-    def load_model(self, model_name):
-        self.model.restore(self.session, model_name)
+    def freeze_graph(self, model_folder):
+        checkpoint = tf.train.get_checkpoint_state(model_folder)
+        input_checkpoint = checkpoint.model_checkpoint_path
+        absolute_model_folder = '/'.join(input_checkpoint.split('/')[:-1])
+        output_graph = absolute_model_folder + '/' + self.model_name.split('/')[-1]
+        output_node_names = 'Predictions/predict_class'
+        clear_devices = True
+        saver = tf.train.import_meta_graph(input_checkpoint + '.meta', clear_devices=clear_devices)
+        graph = self.session.graph
+        input_graph_def = graph.as_graph_def()
+        saver.restore(self.session, input_checkpoint)
+        output_graph_def = graph_util.convert_variables_to_constants(
+            self.session,
+            input_graph_def,
+            output_node_names.split(',')
+        )
+        with tf.gfile.GFile(output_graph, 'wb') as f:
+            f.write(output_graph_def.SerializeToString())
+        print('%d ops in the final graph.' % len(output_graph_def.node))
+        return True
+
+    def load_checkpoint(self, checkpoint_filename):
+        self.model.restore(self.session, checkpoint_filename)
 
     def close(self):
         self.session.close()
