@@ -54,7 +54,7 @@ def mlp_layer(prev_layer, weight, bias, activation_type='sigmoid',
 
 
 def optimize_algo(learning_rate=0.001, descent_method='gradient',
-                  adam_beta1=0.9, adam_beta2=0.9):
+                  adam_beta1=0.9, adam_beta2=0.999):
     if descent_method == 'gradient':
         optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
     elif descent_method == 'adam':
@@ -71,26 +71,44 @@ def optimize_algo(learning_rate=0.001, descent_method='gradient',
     return optimizer
 
 
-def convolve(input, weight, bias, strides=1, activation_type='relu', conv_layer_name=''):
-    x = tf.nn.conv3d(input, weight, strides=[1, strides, strides, strides, 1], padding='SAME')
+def convolve(input, weight, bias, stride=1, activation_type='relu', dim=2,
+             padding_type='SAME', conv_layer_name=''):
+    if dim == 2:
+        x = tf.nn.conv2d(input, weight, strides=[1, stride, stride, 1],
+                         padding=padding_type)
+    elif dim == 3:
+        x = tf.nn.conv3d(input, weight, strides=[1, stride, stride, stride, 1],
+                         padding=padding_type)
+    else:
+        raise ValueError('Dim cannot be other than 2 or 3')
     x = tf.nn.bias_add(x, bias)
     return activation_layer(x, activation_type=activation_type, activation_name=conv_layer_name)
 
 
-def maxpool_layer(input, overlap=2, stride=2, padding_type='SAME'):
-    return tf.nn.max_pool3d(input, ksize=[1, overlap, overlap, overlap, 1],
-                          strides=[1, stride, stride, stride, 1],
-                          padding=padding_type)
+def maxpool_layer(input, overlap=2, stride=2, dim=2, padding_type='SAME',
+                  layer_name=''):
+    if dim == 2:
+        x = tf.nn.max_pool(input, ksize=[1, overlap, overlap, 1],
+                           strides=[1, stride, stride, 1],
+                           padding=padding_type, name=layer_name)
+    elif dim == 3:
+        x = tf.nn.max_pool3d(input, ksize=[1, overlap, overlap, overlap, 1],
+                             strides=[1, stride, stride, stride, 1],
+                             padding=padding_type, name=layer_name)
+    else:
+        raise ValueError('Dim cannot be other than 2 or 3')
+    return x
 
 
-def conv_layer(input, weight_shape, bias_shape,
-               weight_type='random_normal', bias_type='random_normal',
-               stride=2):
-    weight = weights(weight_shape, weight_type=weight_type, weight_name='weight')
-    bias = biases(bias_shape, bias_type=bias_type, bias_name='bias')
-    layer = convolve(input, weight, bias, strides=stride)
+def conv_layer(input, weight, bias, stride=2, dim=2, padding_type='SAME', layer_name=''):
+    layer = convolve(input, weight, bias, stride=stride, dim=dim, padding_type=padding_type,
+                     conv_layer_name=layer_name)
     return layer
 
 
+def dropout(input, dropout=0.8, layer_name=''):
+    return tf.nn.dropout(input, dropout, name=layer_name)
+
+
 def batch_norm_layer(input):
-    return  tf.nn.batch_normalization(input)
+    return tf.nn.batch_normalization(input)
