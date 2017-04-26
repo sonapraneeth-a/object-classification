@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 from scipy.misc import toimage
 import tensorflow as tf
+from tensorflow.python.framework import graph_util
 from sklearn.metrics import classification_report, accuracy_score
 from sklearn.model_selection import train_test_split
 from library.tf.parameters import Weights, Bias
@@ -30,13 +31,16 @@ class LinearClassifier:
                  logs=True,
                  log_dir='./logs/',
                  test_log=False,
-                 save_model=False,
-                 model_name='./model/linear_classifier_model.ckpt',
+                 save_model=True,
+                 save_checkpoint=True,
+                 checkpoint_filename='linear_classifier_model.ckpt',
+                 model_name='linear_classifier_model.pb',
                  restore=True,
                  config={'weight': {'type': 'random_normal', 'name': 'Weight'},
                          'bias': {'type': 'random_normal', 'name': 'Bias'},
-                         'activation_fn': 'softmax',
-                         'descent_method': 'gradient'},
+                         'activation_fn': 'softmax'
+                         },
+                 descent_method='gradient'
                  ):
         self.verbose = verbose
         # Classifier Parameter configuration
@@ -59,6 +63,7 @@ class LinearClassifier:
         self.learn_rate_type = learn_rate_type
         self.learn_rate = learn_rate
         self.reg_const = reg_const
+        self.descent_method = descent_method
         # Logging Parameters
         self.logging = logs
         self.logging_dir = log_dir
@@ -66,8 +71,10 @@ class LinearClassifier:
         self.test_log = test_log
         # Model Parameters
         self.save_model = save_model
+        self.save_checkpoint = save_checkpoint
         self.model = None
         self.model_name = model_name
+        self.checkpoint_filename = checkpoint_filename
         self.restore = restore
         self.current_learn_rate = None
         self.last_epoch = None
@@ -87,19 +94,30 @@ class LinearClassifier:
         self.summary_class = Summaries(train=True, validate=True, test=test_log)
 
     def print_parameters(self):
-        print('Parameters for simple linear classifier')
-        print('Out params')
-        print(self.out_params.keys())
-        print('Predict params')
-        print(self.predict_params.keys())
-        print('Model params')
-        print(self.model_params.keys())
-        print('Params')
-        print(self.params.keys())
-        print('Placeholders')
-        print(self.predict_params['input'])
-        print(self.predict_params['true_one_hot'])
-        print(self.predict_params['true_class'])
+        print('Parameters for MLP classifier')
+        print('>> Input Parameters')
+        print('Input                  : %s ' % str(self.predict_params['input']))
+        print('True one hot labels    : %s ' % str(self.predict_params['true_one_hot']))
+        print('True class             : %s ' % str(self.predict_params['true_class']))
+        print('Predict one hot labels : %s ' % str(self.predict_params['predict_one_hot']))
+        print('Predict class          : %s ' % str(self.predict_params['predict_class']))
+        print('>> Model params')
+        for op in self.session.graph.get_operations():
+            print(op.name)
+        print('Output Logits  : %s' % str(self.params['logits']))
+        print('Entropy        : %s' % str(self.params['cross_entropy']))
+        print('Predictions    : %s ' % str(self.params['predictions']))
+        print('Optimizer      : %s ' % str(self.params['optimizer']))
+        print('>> Model info')
+        print('Train loss     : %s' % str(self.model_params['train_loss']))
+        print('Train accuracy : %s' % str(self.model_params['train_acc']))
+        print('Val. loss      : %s' % str(self.model_params['val_loss']))
+        print('Val. accuracy  : %s' % str(self.model_params['val_acc']))
+        print('>> Summary params')
+        print('Train loss     : %s' % str(self.summary_params['train_loss']))
+        print('Train accuracy : %s' % str(self.summary_params['train_acc']))
+        print('Val. loss      : %s' % str(self.summary_params['val_loss']))
+        print('Val. accuracy  : %s' % str(self.summary_params['val_acc']))
 
     def make_placeholders_for_inputs(self, num_features, num_classes):
         with tf.device(self.device):
@@ -136,7 +154,7 @@ class LinearClassifier:
                                   activation_type=self.config['activation_fn'])
                 self.params['logits'] = tf.nn.softmax(value)
                 self.predict_params['predict_class'] = \
-                    tf.argmax(self.params['logits'], dimension=1)
+                    tf.argmax(self.params['logits'], dimension=1, name='predict_class')
                 self.predict_params['predict_one_hot'] = \
                     tf.one_hot(self.predict_params['predict_class'],
                                depth=self.num_classes, on_value=1.0,
@@ -177,9 +195,8 @@ class LinearClassifier:
                                                         self.out_params['list_learn_rate'])
                 self.params['optimizer'] = \
                     optimize_algo(self.current_learn_rate,
-                                  descent_method=self.config['descent_method'])\
+                                  descent_method=self.descent_method)\
                                   .minimize(self.model_params['train_loss'])
-
             self.params['predictions'] = tf.equal(self.predict_params['true_class'],
                                                   self.predict_params['predict_class'])
 
@@ -243,11 +260,11 @@ class LinearClassifier:
                 file_utils.delete_all_files_in_dir(self.logging_dir)
             self.summary_writer = \
                 tf.summary.FileWriter(self.logging_dir, graph=self.session.graph)
-            if self.save_model is True:
-                self.model = tf.train.Saver(max_to_keep=2)
+            if self.save_checkpoint is True:
+                self.model = tf.train.Saver(max_to_keep=1)
         # Step 9: Restore model
         if self.restore is True:
-            self.restore_model()
+            self.restore_checkpoint()
         epoch = self.session.run(self.global_step)
         print('Model has been trained for %d iterations' % epoch)
         end = time.time()
@@ -370,10 +387,10 @@ class LinearClassifier:
                     print('train_loss: %.4f | train_acc: %.4f | val_loss: %.4f | val_acc: %.4f | '
                           'test_acc: %.4f | Time: %.4f s'
                           % (train_loss, train_acc, val_loss, val_acc, test_acc, duration))
-            if self.save_model is True:
-                model_directory = os.path.dirname(self.model_name)
+            if self.save_checkpoint is True:
+                model_directory = os.path.dirname(self.checkpoint_filename)
                 file_utils.mkdir_p(model_directory)
-                self.model.save(self.session, self.model_name, global_step=epoch)
+                self.model.save(self.session, self.checkpoint_filename, global_step=epoch)
             if epoch == 0:
                 prev_cost = train_loss
             else:
@@ -382,6 +399,9 @@ class LinearClassifier:
             epoch += 1
         end = time.time()
         print('Fit completed in %.4f seconds' % (end-start))
+        if self.save_model is True:
+            print('Saving the graph to %s' % (self.logging_dir+'/'+self.model_name))
+            self.freeze_graph(self.logging_dir)
 
     def predict(self, data):
         feed_dict_data = {self.predict_params['input']: data}
@@ -461,16 +481,13 @@ class LinearClassifier:
             else:
                 ax.imshow(image, cmap='binary')
             ax.set_xlabel(classes[image_no], weight='bold', size=fontsize)
-            # Remove ticks from the plot.
             ax.set_xticks([])
             ax.set_yticks([])
-        # plt.title('Learnt weights from linear classifier')
-        # plt.tight_layout()
         plt.show()
         return True
 
-    def restore_model(self):
-        file_name = os.path.splitext(os.path.abspath(self.model_name))[0]
+    def restore_checkpoint(self):
+        file_name = os.path.splitext(os.path.abspath(self.checkpoint_filename))[0]
         num_files = len(sorted(glob.glob(os.path.abspath(file_name + '*.meta'))))
         if num_files > 0:
             checkpoint_file = os.path.abspath(sorted(glob.glob(file_name + '*.data-00000-of-00001'),
@@ -491,8 +508,29 @@ class LinearClassifier:
             file_utils.delete_all_files_in_dir(self.logging_dir)
             print('Restoring cannot be done')
 
-    def load_model(self, model_name):
-        self.model.restore(self.session, model_name)
+    def freeze_graph(self, model_folder):
+        checkpoint = tf.train.get_checkpoint_state(model_folder)
+        input_checkpoint = checkpoint.model_checkpoint_path
+        absolute_model_folder = '/'.join(input_checkpoint.split('/')[:-1])
+        output_graph = absolute_model_folder + '/' + self.model_name.split('/')[-1]
+        output_node_names = 'Predictions/predict_class'
+        clear_devices = True
+        saver = tf.train.import_meta_graph(input_checkpoint + '.meta', clear_devices=clear_devices)
+        graph = self.session.graph
+        input_graph_def = graph.as_graph_def()
+        saver.restore(self.session, input_checkpoint)
+        output_graph_def = graph_util.convert_variables_to_constants(
+            self.session,
+            input_graph_def,
+            output_node_names.split(',')
+        )
+        with tf.gfile.GFile(output_graph, 'wb') as f:
+            f.write(output_graph_def.SerializeToString())
+        print('%d ops in the final graph.' % len(output_graph_def.node))
+        return True
+
+    def load_checkpoint(self, checkpoint_filename):
+        self.model.restore(self.session, checkpoint_filename)
 
     def close(self):
         self.session.close()
