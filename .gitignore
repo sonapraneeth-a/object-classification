@@ -1,5 +1,6 @@
 # Personal files and folders
-./logs/
+logs/
+.idea/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
