@@ -446,7 +446,7 @@ class MLPClassifier:
         print('Restoring training from epoch :', epoch)
         converged = False
         prev_cost = 0
-        num_batches = int(train_data.shape[0] / self.batch_size)
+        num_batches = int(math.ceil(train_data.shape[0] / self.batch_size))
         while (epoch != self.max_iterations) and converged is False:
             start = time.time()
             start_batch_index = 0

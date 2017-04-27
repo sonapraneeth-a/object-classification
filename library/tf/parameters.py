@@ -1,4 +1,5 @@
 import tensorflow as tf
+import math
 
 
 class List:
@@ -19,8 +20,8 @@ class Weights:
     @staticmethod
     def define(shape,
                weight_type='random_normal',
-               mean=0.0, std=1.0,
-               weight_name='Weight', seed=1,
+               mean=0.0, std=0.02, factor=1.0,
+               weight_name='Weight', seed=None,
                scope=None):
         if scope is None:
             if weight_type == 'zeros':
@@ -33,6 +34,13 @@ class Weights:
             elif weight_type == 'truncated_normal':
                 weight = tf.Variable(tf.truncated_normal(shape, mean=mean, stddev=std, seed=seed),
                                      name=weight_name)
+            elif weight_type == 'uniform_scaling':
+                input_size = 1.0
+                for dim in shape[:-1]:
+                    input_size *= float(dim)
+                max_val = math.sqrt(3 / input_size) * factor
+                weight = tf.Variable(tf.random_ops.random_uniform(shape, -max_val, max_val,
+                                     seed=seed, name=weight_name))
             else:
                 weight = tf.Variable(tf.random_normal(shape, mean=mean, stddev=std, seed=seed),
                                      name=weight_name)

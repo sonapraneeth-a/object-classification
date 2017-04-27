@@ -54,7 +54,8 @@ def mlp_layer(prev_layer, weight, bias, activation_type='sigmoid',
 
 
 def optimize_algo(learning_rate=0.001, descent_method='gradient',
-                  adam_beta1=0.9, adam_beta2=0.999):
+                  adam_beta1=0.9, adam_beta2=0.999,
+                  momentum=0.9, lr_decay=0.0, decay_step=100):
     if descent_method == 'gradient':
         optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
     elif descent_method == 'adam':
@@ -66,6 +67,9 @@ def optimize_algo(learning_rate=0.001, descent_method='gradient',
         optimizer = tf.train.AdadeltaOptimizer(learning_rate=learning_rate)
     elif descent_method == 'rmsprop':
         optimizer = tf.train.RMSPropOptimizer(learning_rate=learning_rate)
+    elif descent_method == 'momentum':
+        optimizer = tf.train.MomentumOptimizer(learning_rate=learning_rate,
+                                               momentum=momentum)
     else:
         optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
     return optimizer
@@ -112,3 +116,7 @@ def dropout(input, dropout=0.8, layer_name=''):
 
 def batch_norm_layer(input):
     return tf.nn.batch_normalization(input)
+
+
+def residual_layer(input):
+    return True
