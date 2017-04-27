@@ -10,6 +10,7 @@ from operator import mul
 from sklearn.metrics import classification_report, accuracy_score
 from sklearn.model_selection import train_test_split
 from library.tf.parameters import Weights, Bias
+from library.tf.data_augmentation import flip_left_right, flip_up_down, random_rotate, transpose
 from library.tf.layers import conv_layer, maxpool_layer, mlp_layer, dropout, optimize_algo
 from library.tf.summary import Summaries
 from library.plot_tools import plot
@@ -37,11 +38,13 @@ class CNNClassifier:
                  model_name='./model/cnn_classifier_model.ckpt',
                  restore=True,
                  descent_method='gradient',
-                 config=None
+                 config=None,
+                 augmentation=None,
                  ):
         self.verbose = verbose
         # Classifier Parameter configuration
         self.config = config
+        self.augmentation = augmentation
         self.descent_method = descent_method
         self.num_classes = None
         self.image_shape = None
@@ -132,7 +135,7 @@ class CNNClassifier:
                     self.predict_params['true_class'] = \
                         tf.placeholder(tf.int64, [None], name='y_true_class')
 
-    def make_conv_layer(self, key, input, num_input, filter_size, num_output):
+    def make_conv_layer(self, key, input, filter_size, num_input, num_output):
         with tf.name_scope(key):
             # Weights
             if 'type' in self.config[key]['weight']:
@@ -229,23 +232,36 @@ class CNNClassifier:
     def make_layers(self):
         config_keys = list(self.config)
         iteration = 0
+        prev_key = None
         for key in config_keys:
+            print('%s -> %s' % (str(prev_key), key))
             if 'conv' in key:
+                print('Making convolution layer: %s' % key)
                 if iteration == 0:
                     input = self.predict_params['input']
                     num_input = self.image_shape[2]
                 else:
                     input = self.model_params['layers'][prev_key]
-                    num_input = self.config[prev_key]['num_outputs']
+                    num_input = input.get_shape().as_list()[-1]
                 filter_size = self.config[key]['filter_size']
                 num_output = self.config[key]['num_outputs']
+                print(filter_size, filter_size, num_input, num_output)
+                print('Input shape: %s' % str(input.get_shape().as_list()))
                 self.make_conv_layer(key, input, filter_size, num_input, num_output)
+                print('Output shape: %s' % str(self.model_params['layers'][key].get_shape().as_list()))
             if 'max_pool' in key:
+                print('Making max pool layer: %s' % key)
                 input = self.model_params['layers'][prev_key]
+                print('Input shape: %s' % str(input.get_shape().as_list()))
                 self.make_maxpool_layer(key, input)
+                print('Output shape: %s' % str(self.model_params['layers'][key].get_shape().as_list()))
                 if 'dropout' in key:
+                    print('Adding dropout')
+                    print('Input shape: %s' % str(self.model_params['layers'][key].get_shape().as_list()))
                     self.make_dropout(self.model_params['layers'][key], key)
+                    print('Output shape: %s' % str(self.model_params['layers'][key].get_shape().as_list()))
             if 'full_connected' in key:
+                print('Making full connected layer: %s' % key)
                 input = self.model_params['layers'][prev_key]
                 if 'conv' in prev_key or 'max_pool' in prev_key:
                     num_nodes_list = self.model_params['layers'][prev_key].get_shape().as_list()
@@ -253,20 +269,33 @@ class CNNClassifier:
                     input = tf.reshape(input, [-1, num_nodes])
                 else:
                     input = self.model_params['layers'][prev_key]
+                    num_nodes = input.get_shape().as_list()[-1]
                 weight_shape = (num_nodes, self.config[key]['num_outputs'])
                 bias_shape = (self.config[key]['num_outputs'],)
+                print('Input shape: %s' % str(input.get_shape().as_list()))
                 self.make_full_connected_layer(key, input, weight_shape, bias_shape)
+                print('Output shape: %s' % str(self.model_params['layers'][key].get_shape().as_list()))
                 if 'dropout' in key:
+                    print('Adding dropout')
+                    print('Input shape: %s' % str(self.model_params['layers'][key].get_shape().as_list()))
                     self.make_dropout(self.model_params['layers'][key], key)
+                    print('Output shape: %s' % str(self.model_params['layers'][key].get_shape().as_list()))
             if 'output' in key:
-                num_nodes = self.config[prev_key]['num_outputs']
+                print('Making output layer: %s' % key)
+                num_nodes = self.model_params['layers'][prev_key].get_shape().as_list()[-1]
                 input = self.model_params['layers'][prev_key]
                 weight_shape = (num_nodes, self.num_classes)
                 bias_shape = (self.num_classes,)
+                print('Input shape: %s' % str(input.get_shape().as_list()))
                 self.make_full_connected_layer(key, input, weight_shape, bias_shape)
                 if 'dropout' in key:
+                    print('Adding dropout')
+                    print('Input shape: %s' % str(self.model_params['layers'][key].get_shape().as_list()))
                     self.make_dropout(self.model_params['layers'][key], key)
+                    print('Output shape: %s' % str(self.model_params['layers'][key].get_shape().as_list()))
+                print('Output shape: %s' % str(self.model_params['layers'][key].get_shape().as_list()))
             prev_key = key
+            iteration += 1
 
     def make_parameters(self):
         with tf.device(self.device):
@@ -278,7 +307,7 @@ class CNNClassifier:
             with tf.name_scope('Predictions'):
                 self.params['logits'] = tf.nn.softmax(self.model_params['layers']['output_layer'])
                 self.predict_params['predict_class'] = \
-                    tf.argmax(self.params['logits'], dimension=1)
+                    tf.argmax(self.params['logits'], dimension=1, name='predict_class')
                 self.predict_params['predict_one_hot'] = \
                     tf.one_hot(self.predict_params['predict_class'],
                                depth=self.num_classes, on_value=1.0,
@@ -302,6 +331,7 @@ class CNNClassifier:
                 self.params['update_val_loss'], self.summary_params['val_loss'] = \
                     self.summary_class.write_loss(total_loss, self.out_params['list_val_loss'],
                                                   name='validate')
+        with tf.device(self.device):
             with tf.name_scope('Optimizer'):
                 if self.learn_rate_type == 'exponential':
                     self.current_learn_rate = \
@@ -318,6 +348,7 @@ class CNNClassifier:
                     optimize_algo(self.current_learn_rate,
                                   descent_method=self.descent_method) \
                         .minimize(self.model_params['train_loss'])
+        with tf.device(self.device):
             self.params['predictions'] = tf.equal(self.predict_params['true_class'],
                                                   self.predict_params['predict_class'])
 
@@ -366,6 +397,8 @@ class CNNClassifier:
             log_device_placement=True,
             allow_soft_placement=True,
         )
+        # config.gpu_options.allow_growth = True
+        # config.gpu_options.per_process_gpu_memory_fraction = 0.4
         if self.session_type == 'default':
             self.session = tf.Session(config=config)
         if self.session_type == 'interactive':
@@ -381,7 +414,7 @@ class CNNClassifier:
             self.summary_writer = \
                 tf.summary.FileWriter(self.logging_dir, graph=self.session.graph)
             if self.save_model is True:
-                self.model = tf.train.Saver(max_to_keep=2)
+                self.model = tf.train.Saver(max_to_keep=1)
         # Step 9: Restore model
         if self.restore is True:
             self.restore_model()
@@ -391,7 +424,66 @@ class CNNClassifier:
         print('Tensorflow graph created in %.4f seconds' % (end - start))
         return True
 
+    def make_data_augmentation(self, data, labels, classes):
+        aug_keys = list(self.augmentation)
+        aug_data = []
+        aug_labels = []
+        aug_classes = []
+        result_data = None
+        result_labels = None
+        result_classes = None
+        iteration = 0
+        for key in aug_keys:
+            if 'flip_left_right' in key:
+                if 'seed' not in self.augmentation[key].keys():
+                    seed = None
+                else:
+                    seed = self.augmentation[key]['seed']
+                result_data, result_labels, result_classes = \
+                    flip_left_right(data, labels, classes, random_seed=seed)
+            elif 'flip_up_down' in key:
+                result_data, result_labels, result_classes = \
+                    flip_up_down(data, labels, classes)
+                result_data = self.session.run(result_data)
+            elif 'rotate' in key:
+                if 'seed' not in self.augmentation[key].keys():
+                    seed = None
+                else:
+                    seed = self.augmentation[key]['seed']
+                if 'max_angle' not in self.augmentation[key].keys():
+                    max_angle = None
+                else:
+                    max_angle = self.augmentation[key]['max_angle']
+                result_data, result_labels, result_classes = \
+                    random_rotate(data, labels, classes, random_seed=seed,
+                                  max_angle=max_angle)
+            if iteration == 0:
+                aug_data = result_data
+                aug_labels = result_labels
+                aug_classes = result_classes
+            else:
+                aug_data = np.append(aug_data, result_data, axis=0)
+                aug_labels = np.append(aug_labels, result_labels, axis=0)
+                aug_classes = np.append(aug_classes, result_classes, axis=0)
+            iteration += 1
+        del result_data
+        del result_labels
+        del result_classes
+        return aug_data, aug_labels, aug_classes
+
+    def make_data(self, data, labels, classes):
+        if self.augmentation is not None:
+            print('Performing augmentation')
+            data, labels, classes = self.make_data_augmentation(data, labels, classes)
+        return data, labels, classes
+
     def fit(self, data, labels, classes, test_data=None, test_labels=None, test_classes=None):
+        # if self.augmentation is not None:
+        #     aug_data, aug_labels, aug_classes = \
+        #         self.make_data_augmentation(data, labels, classes)
+        # data = np.append(data, aug_data, axis=0)
+        # labels = np.append(labels, aug_labels, axis=0)
+        # classes = np.append(classes, aug_classes, axis=0)
         train_data, validate_data, train_labels, \
         validate_labels, train_classes, validate_classes = \
             train_test_split(data, labels, classes, train_size=self.train_validate_split)
@@ -438,9 +530,11 @@ class CNNClassifier:
         print('Restoring training from epoch :', epoch)
         converged = False
         prev_cost = 0
-        num_batches = int(train_data.shape[0] / self.batch_size)
         while (epoch != self.max_iterations) and converged is False:
             start = time.time()
+            num_batches = int(math.ceil(train_data.shape[0] / self.batch_size))
+            print('Training using original train data using batch size of %d '
+                  'and total batches of %d' % (self.batch_size, num_batches))
             start_batch_index = 0
             for batch in range(num_batches):
                 end_batch_index = start_batch_index + self.batch_size
@@ -463,6 +557,34 @@ class CNNClassifier:
                                         self.last_epoch],
                                        feed_dict=feed_dict_train)
                 start_batch_index += self.batch_size
+            if self.augmentation is not None:
+                aug_data, aug_labels, aug_classes = \
+                    self.make_data_augmentation(train_data, train_labels, train_classes)
+                num_batches = int(math.ceil(aug_data.shape[0] / self.batch_size))
+                print('Training using augmented train data using batch size of %d '
+                      'and total batches of %d' % (self.batch_size, num_batches))
+                start_batch_index = 0
+                for batch in range(num_batches):
+                    end_batch_index = start_batch_index + self.batch_size
+                    if end_batch_index < aug_data.shape[0]:
+                        aug_batch_data = aug_data[start_batch_index:end_batch_index, :]
+                        aug_batch_labels = aug_labels[start_batch_index:end_batch_index, :]
+                        aug_batch_classes = aug_classes[start_batch_index:end_batch_index]
+                    else:
+                        aug_batch_data = aug_data[start_batch_index:, :]
+                        aug_batch_labels = aug_labels[start_batch_index:, :]
+                        aug_batch_classes = aug_classes[start_batch_index:]
+                    feed_dict_train = {self.predict_params['input']: aug_batch_data,
+                                       self.predict_params['true_one_hot']: aug_batch_labels,
+                                       self.predict_params['true_class']: aug_batch_classes}
+                    _, train_loss, train_loss_summary, \
+                    train_acc, train_acc_summary, curr_epoch \
+                        = self.session.run([self.params['optimizer'],
+                                            self.model_params['train_loss'], self.summary_params['train_loss'],
+                                            self.model_params['train_acc'], self.summary_params['train_acc'],
+                                            self.last_epoch],
+                                           feed_dict=feed_dict_train)
+                    start_batch_index += self.batch_size
             val_loss, val_loss_summary, val_acc, val_acc_summary = \
                 self.session.run([self.model_params['val_loss'], self.summary_params['val_loss'],
                                   self.model_params['val_acc'], self.summary_params['val_acc']],
@@ -585,11 +707,14 @@ class CNNClassifier:
                          plot_lib='matplotlib', matplotlib_style='default')
         return True
 
-    def plot_weights(self, layer_key, num_layers, fig_size=(12,16), fontsize=20):
-        weight = self.session.run(self.model_params['weights'][layer_key])
-        if weight.shape[-1] < num_layers:
-            print('Requested more layers than present. Reducing to %d' % weight.shape[-1])
-            num_layers = weight.shape[-1]
+    def plot_layers(self, input_images, layer_key, num_layers=32, type='rgb', fig_size=(12,16), fontsize=20):
+        feed_dict_layer = {self.predict_params['input']: input_images}
+        layer = self.session.run(self.model_params['layers'][layer_key], feed_dict=feed_dict_layer)
+        layer = layer[0, :]
+        print(layer.shape)
+        if layer.shape[-1] < num_layers:
+            # print('Requested more layers than present. Reducing to %d' % layer.shape[-1])
+            num_layers = layer.shape[-1]
         num_rows = 4
         num_cols = int(num_layers / 4)
         fig = plt.figure()
@@ -597,19 +722,18 @@ class CNNClassifier:
         fig.set_figwidth(fig_size[1])
         fig.subplots_adjust(wspace=0.1, hspace=0.0001)
         gs = gridspec.GridSpec(num_rows, num_cols)
-        type = 'rgb'
-        for image_no in range(num_layers):
-            ax = plt.subplot(gs[image_no])
+        for layer_no in range(num_layers):
+            ax = plt.subplot(gs[layer_no])
             ax.set_aspect('equal')
             if type == 'rgb':
-                ax.imshow(toimage(weight[:, :, :, image_no]), cmap='binary')
+                ax.imshow(toimage(layer[:, :, layer_no]), cmap='binary')
             elif type == 'grey':
-                ax.imshow(toimage(weight[:, :, :, image_no]), cmap=matplotlib.cm.Greys_r)
+                ax.imshow(toimage(layer[:, :, layer_no]), cmap=matplotlib.cm.Greys_r)
             else:
-                ax.imshow(weight[:, image_no], cmap='binary')
+                ax.imshow(layer[:, layer_no], cmap='binary')
             ax.set_xticks([])
             ax.set_yticks([])
-        fig_title = 'Weights for Convolution layer: ' + layer_key
+        fig_title = 'Convolution layer: ' + layer_key
         fig.suptitle(fig_title, fontsize=fontsize)
         plt.show()
         return True
@@ -636,12 +760,12 @@ class CNNClassifier:
             file_utils.delete_all_files_in_dir(self.logging_dir)
             print('Restoring cannot be done')
 
-    def freeze_graph(model_folder):
+    def freeze_graph(self, model_folder):
         checkpoint = tf.train.get_checkpoint_state(model_folder)
         input_checkpoint = checkpoint.model_checkpoint_path
         absolute_model_folder = '/'.join(input_checkpoint.split('/')[:-1])
-        output_graph = absolute_model_folder + '/frozen_model.pb'
-        output_node_names = 'Accuracy/predictions'
+        output_graph = absolute_model_folder + '/' + self.model_name.split('/')[-1]
+        output_node_names = 'Predictions/predict_classes'
         clear_devices = True
         saver = tf.train.import_meta_graph(input_checkpoint + '.meta', clear_devices=clear_devices)
         graph = tf.get_default_graph()
@@ -649,29 +773,14 @@ class CNNClassifier:
         with tf.Session() as sess:
             saver.restore(sess, input_checkpoint)
             output_graph_def = graph_util.convert_variables_to_constants(
-                sess,  # The session is used to retrieve the weights
-                input_graph_def,  # The graph_def is used to retrieve the nodes
-                output_node_names.split(',')  # The output node names are used to select the usefull nodes
+                sess,
+                input_graph_def,
+                output_node_names.split(',')
             )
             with tf.gfile.GFile(output_graph, 'wb') as f:
                 f.write(output_graph_def.SerializeToString())
             print('%d ops in the final graph.' % len(output_graph_def.node))
         return True
-
-    def load_graph(frozen_graph_filename):
-        with tf.gfile.GFile(frozen_graph_filename, 'rb') as f:
-            graph_def = tf.GraphDef()
-            graph_def.ParseFromString(f.read())
-        with tf.Graph().as_default() as graph:
-            tf.import_graph_def(
-                graph_def,
-                input_map=None,
-                return_elements=None,
-                name="prefix",
-                op_dict=None,
-                producer_op_list=None
-            )
-        return graph
 
     def load_model(self, model_name):
         self.model.restore(self.session, model_name)
