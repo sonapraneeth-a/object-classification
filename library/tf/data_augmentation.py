@@ -96,6 +96,7 @@ def random_rotate(images, labels, classes, max_angle=20, random_seed=None):
             result_images.append(image)
             result_labels.append(labels[i])
             result_classes.append(classes[i])
+    result_images = np.array(result_images)
     result_labels = np.array(result_labels)
     result_classes = np.array(result_classes)
     return result_images, result_labels, result_classes

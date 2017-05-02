@@ -34,8 +34,10 @@ class CNNClassifier:
                  logs=True,
                  log_dir='./logs/',
                  test_log=False,
-                 save_model=False,
-                 model_name='./model/cnn_classifier_model.ckpt',
+                 save_model=True,
+                 save_checkpoint=True,
+                 checkpoint_filename='cnn_classifier_model.ckpt',
+                 model_name='cnn_classifier_model.pb',
                  restore=True,
                  descent_method='gradient',
                  config=None,
@@ -73,10 +75,13 @@ class CNNClassifier:
         self.logging_dir = log_dir
         self.summary_writer = None
         self.test_log = test_log
+        self.merged_summary_op = None
         # Model Parameters
         self.save_model = save_model
+        self.save_checkpoint = save_checkpoint
         self.model = None
         self.model_name = model_name
+        self.checkpoint_filename = checkpoint_filename
         self.restore = restore
         self.current_learn_rate = None
         self.last_epoch = None
@@ -147,6 +152,7 @@ class CNNClassifier:
             else:
                 weight_name = 'Weight_'+key
             weight_shape = (filter_size, filter_size, num_input, num_output)
+            print(weight_name)
             self.model_params['weights'][key] = \
                 Weights.define(weight_shape, weight_type=weight_type, weight_name=weight_name)
             # Bias
@@ -319,6 +325,9 @@ class CNNClassifier:
                 self.params['cross_entropy'] = \
                     tf.nn.softmax_cross_entropy_with_logits(logits=self.model_params['layers']['output_layer'],
                                                             labels=self.predict_params['true_one_hot'])
+                print('Made cross entropy')
+                nodes = [n.name for n in tf.get_default_graph().as_graph_def().node]
+                print(nodes)
             with tf.name_scope('Loss_Function'):
                 total_loss = tf.reduce_mean(self.params['cross_entropy'])
                 # Train loss
@@ -413,7 +422,7 @@ class CNNClassifier:
                 file_utils.delete_all_files_in_dir(self.logging_dir)
             self.summary_writer = \
                 tf.summary.FileWriter(self.logging_dir, graph=self.session.graph)
-            if self.save_model is True:
+            if self.save_checkpoint is True:
                 self.model = tf.train.Saver(max_to_keep=1)
         # Step 9: Restore model
         if self.restore is True:
@@ -642,10 +651,10 @@ class CNNClassifier:
                     print('train_loss: %.4f | train_acc: %.4f | val_loss: %.4f | val_acc: %.4f | '
                           'test_acc: %.4f | Time: %.4f s'
                           % (train_loss, train_acc, val_loss, val_acc, test_acc, duration))
-            if self.save_model is True:
-                model_directory = os.path.dirname(self.model_name)
+            if self.save_checkpoint is True:
+                model_directory = os.path.dirname(self.checkpoint_filename)
                 file_utils.mkdir_p(model_directory)
-                self.model.save(self.session, self.model_name, global_step=epoch)
+                self.model.save(self.session, self.checkpoint_filename, global_step=epoch)
             if epoch == 0:
                 prev_cost = train_loss
             else:
@@ -654,6 +663,9 @@ class CNNClassifier:
             epoch += 1
         end = time.time()
         print('Fit completed in %.4f seconds' % (end - start))
+        if self.save_model is True:
+            print('Saving the graph to %s' % (self.logging_dir+self.model_name.split('/')[-1]))
+            self.freeze_graph(self.logging_dir)
 
     def predict(self, data):
         feed_dict_data = {self.predict_params['input']: data}
@@ -763,11 +775,15 @@ class CNNClassifier:
     def freeze_graph(self, model_folder):
         checkpoint = tf.train.get_checkpoint_state(model_folder)
         input_checkpoint = checkpoint.model_checkpoint_path
+        print(input_checkpoint)
         absolute_model_folder = '/'.join(input_checkpoint.split('/')[:-1])
+        print(absolute_model_folder)
         output_graph = absolute_model_folder + '/' + self.model_name.split('/')[-1]
+        print(output_graph)
         output_node_names = 'Predictions/predict_classes'
         clear_devices = True
         saver = tf.train.import_meta_graph(input_checkpoint + '.meta', clear_devices=clear_devices)
+        print(saver)
         graph = tf.get_default_graph()
         input_graph_def = graph.as_graph_def()
         with tf.Session() as sess:

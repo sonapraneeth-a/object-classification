@@ -16,7 +16,7 @@ class CIFAR10:
                  preprocess='',
                  augment=False,
                  num_test_images=1.0,
-                 endian='big',
+                 endian='little',
                  make_image=True,
                  image_mode='rgb',
                  verbose=False):

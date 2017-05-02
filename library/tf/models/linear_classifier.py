@@ -69,6 +69,7 @@ class LinearClassifier:
         self.logging_dir = log_dir
         self.summary_writer = None
         self.test_log = test_log
+        self.merged_summary_op = None
         # Model Parameters
         self.save_model = save_model
         self.save_checkpoint = save_checkpoint
@@ -94,7 +95,7 @@ class LinearClassifier:
         self.summary_class = Summaries(train=True, validate=True, test=test_log)
 
     def print_parameters(self):
-        print('Parameters for MLP classifier')
+        print('Parameters for Linear classifier')
         print('>> Input Parameters')
         print('Input                  : %s ' % str(self.predict_params['input']))
         print('True one hot labels    : %s ' % str(self.predict_params['true_one_hot']))
@@ -400,7 +401,7 @@ class LinearClassifier:
         end = time.time()
         print('Fit completed in %.4f seconds' % (end-start))
         if self.save_model is True:
-            print('Saving the graph to %s' % (self.logging_dir+'/'+self.model_name))
+            print('Saving the graph to %s' % (self.logging_dir+self.model_name.split('/')[-1]))
             self.freeze_graph(self.logging_dir)
 
     def predict(self, data):

@@ -1,16 +1,25 @@
 from library.utils import file_utils
-import os, shutil, time
+import os, shutil, time, matplotlib
 import numpy as np
 from scipy.misc import toimage
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import Grid
 from library.datasets.dataset import Dataset
+from library.preprocessing.data_transform import transform
 
 
 class CIFAR100:
 
-    def __init__(self, num_images=50000, one_hot_encode=False, train_validate_split=0.8,
-                 num_test_images=10000, verbose=False):
+    def __init__(self, num_images=1.0,
+                 one_hot_encode=False,
+                 train_validate_split=None,
+                 preprocess='',
+                 augment=False,
+                 num_test_images=1.0,
+                 endian='little',
+                 make_image=True,
+                 image_mode='rgb',
+                 verbose=False):
         self.verbose = verbose
         self.img_height = 32
         self.img_width = 32
@@ -18,17 +27,21 @@ class CIFAR100:
         self.num_fine_classes = 20
         self.num_coarse_classes = 100
         self.one_hot_encode = one_hot_encode
+        self.endian = endian
         self.train_validate_split = train_validate_split
-        if num_images > 50000:
-            self.num_images = 50000
+        if num_images > 1.0 or num_images < 0.0:
+            self.num_images = int(50000)
         else:
-            self.num_images = num_images
-        self.num_train_images = int(self.train_validate_split*self.num_images)
-        self.num_validate_images = self.num_images - self.num_train_images
-        if num_test_images > 10000:
-            self.num_test_images = 10000
+            self.num_images = int(num_images*50000)
+        if self.train_validate_split is not None:
+            self.num_train_images = int(self.train_validate_split*self.num_images)
+            self.num_validate_images = self.num_images - self.num_train_images
         else:
-            self.num_test_images = num_test_images
+            self.num_train_images = int(self.num_images)
+        if num_test_images > 1.0 or num_test_images < 0.0:
+            self.num_test_images = int(10000)
+        else:
+            self.num_test_images = int(num_test_images*10000)
         self.file_url = 'https://www.cs.toronto.edu/~kriz/cifar-100-python.tar.gz'
         self.file_md5 = 'eb9058c3a382ffc7106e4002c42a8d85'
         self.fine_classes = \
@@ -58,6 +71,13 @@ class CIFAR100:
              'maple', 'oak', 'palm', 'pine', 'willow',
              'bicycle', 'bus', 'motorcycle', 'pickup truck', 'train',
              'lawn-mower', 'rocket', 'streetcar', 'tank', 'tractor']
+        self.train = Dataset()
+        self.validate = Dataset()
+        self.test = Dataset()
+        self.make_image = make_image
+        self.image_mode = image_mode
+        self.preprocess = preprocess
+        self.augment = augment
 
     def download_and_extract_data(self, data_directory):
         print('Downloading and extracting CIFAR 100 file')
@@ -87,12 +107,12 @@ class CIFAR100:
             result = file_utils.download(self.file_url, tar_file, verbose=self.verbose)
             if result is False:
                 if self.verbose is True:
-                    raise FileNotFoundError('Download of CIFAR 10 dataset failed')
+                    raise FileNotFoundError('Download of CIFAR 100 dataset failed')
                 return False
             result = file_utils.verify_md5(tar_file, self.file_md5, verbose=self.verbose)
             if result is False:
                 if self.verbose is True:
-                    raise FileNotFoundError('Downloaded CIFAR 10 dataset failed md5sum check')
+                    raise FileNotFoundError('Downloaded CIFAR 100 dataset failed md5sum check')
                 return False
         ## Step 4: Extract the dataset
         make_extract = False

@@ -272,7 +272,7 @@ class MLPClassifier:
             with tf.name_scope('Predictions'):
                 self.params['logits'] = tf.nn.softmax(self.model_params['layers']['output_layer'])
                 self.predict_params['predict_class'] = \
-                    tf.argmax(self.params['logits'], dimension=1)
+                    tf.argmax(self.params['logits'], dimension=1, name='predict_class')
                 self.predict_params['predict_one_hot'] = \
                     tf.one_hot(self.predict_params['predict_class'],
                                depth=self.num_classes, on_value=1.0,
@@ -388,7 +388,7 @@ class MLPClassifier:
                 file_utils.delete_all_files_in_dir(self.logging_dir)
             self.summary_writer = \
                 tf.summary.FileWriter(self.logging_dir, graph=self.session.graph)
-            if self.save_model is True:
+            if self.save_checkpoint is True:
                 self.model = tf.train.Saver(max_to_keep=2)
         # Step 9: Restore model
         if self.restore is True:
@@ -528,10 +528,10 @@ class MLPClassifier:
                     print('train_loss: %.4f | train_acc: %.4f | val_loss: %.4f | val_acc: %.4f | '
                           'test_acc: %.4f | Time: %.4f s'
                           % (train_loss, train_acc, val_loss, val_acc, test_acc, duration))
-            if self.save_model is True:
-                model_directory = os.path.dirname(self.model_name)
+            if self.save_checkpoint is True:
+                model_directory = os.path.dirname(self.checkpoint_filename)
                 file_utils.mkdir_p(model_directory)
-                self.model.save(self.session, self.model_name, global_step=epoch)
+                self.model.save(self.session, self.checkpoint_filename, global_step=epoch)
             if epoch == 0:
                 prev_cost = train_loss
             else:
@@ -541,7 +541,7 @@ class MLPClassifier:
         end = time.time()
         print('Fit completed in %.4f seconds' % (end - start))
         if self.save_model is True:
-            print('Saving the graph to %s' % (self.logging_dir+'/'+self.model_name))
+            print('Saving the graph to %s' % (self.logging_dir+self.model_name.split('/')[-1]))
             self.freeze_graph(self.logging_dir)
 
     def predict(self, data):
