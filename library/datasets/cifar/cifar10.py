@@ -1,3 +1,4 @@
+# Importing necessary libraries
 from library.utils import file_utils
 import os, shutil, time
 import numpy as np
@@ -18,7 +19,7 @@ class CIFAR10(CIFARBase):
                  endian='little',
                  make_image=True,
                  image_mode='rgb',
-                 save_h5py = True,
+                 save_h5py='',
                  verbose=False):
         super().__init__(num_images=num_images,
                          one_hot_encode=one_hot_encode,
@@ -29,15 +30,12 @@ class CIFAR10(CIFARBase):
                          endian=endian,
                          make_image=make_image,
                          image_mode=image_mode,
+                         save_h5py=save_h5py,
                          verbose=verbose)
         self.classes = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
         self.num_classes = 10
         self.file_url = 'http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz'
         self.file_md5 = 'c58f30108f718f92721af3b95e74349a'
-        self.make_image = make_image
-        self.image_mode = image_mode
-        self.preprocess = preprocess
-        self.augment = augment
 
     def download_and_extract_data(self, data_directory):
         print('Downloading and extracting CIFAR 10 file')
@@ -99,6 +97,7 @@ class CIFAR10(CIFARBase):
             else:
                 if self.verbose is True:
                     print('Extraction of CIFAR 10 dataset success')
+        print()
         return True
 
     def dict_read(self, dict_file):
@@ -166,11 +165,17 @@ class CIFAR10(CIFARBase):
             self.convert_one_hot_encoding(self.train.class_labels, data_type='train')
             if self.train_validate_split is not None:
                 self.convert_one_hot_encoding(self.validate.class_labels, data_type='validate')
+        if self.save_h5py != '':
+            h5f = h5py.File(self.save_h5py, 'a')
+            h5f.create_dataset('train_dataset', data=self.train.data, compression="gzip", compression_opts=9)
+            print('Written CIFAR 10 train dataset to file: %s' % self.save_h5py)
+            h5f.close()
         del data_labels
         del data_images
         del preprocessed_images
         if self.make_image is True:
             del images
+        print()
         return True
 
     def load_test_data(self, data_directory='/tmp/cifar10/'):
@@ -202,11 +207,17 @@ class CIFAR10(CIFARBase):
         self.test.class_names = np.array(list(map(lambda x: self.classes[x], self.test.class_labels)))
         if self.one_hot_encode is True:
             self.convert_one_hot_encoding(self.test.class_labels, data_type='test')
+        if self.save_h5py != '':
+            h5f = h5py.File(self.save_h5py, 'a')
+            h5f.create_dataset('test_dataset', data=self.test.data, compression="gzip", compression_opts=9)
+            print('Written CIFAR 10 test dataset to file: %s' % self.save_h5py)
+            h5f.close()
         del test_labels
         del test_images
         del preprocessed_images
         if self.make_image is True:
             del images
+        print()
         return True
 
     def load_data(self, train=True, test=True, data_directory='/tmp/cifar10/'):

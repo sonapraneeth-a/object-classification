@@ -18,6 +18,7 @@ class CIFARBase:
                  endian='little',
                  make_image=True,
                  image_mode='rgb',
+                 save_h5py=True,
                  verbose=False):
         self.verbose = verbose
         self.img_height = 32
@@ -46,6 +47,7 @@ class CIFARBase:
         self.image_mode = image_mode
         self.preprocess = preprocess
         self.augment = augment
+        self.save_h5py = save_h5py
         self.classes = None
         self.num_classes = None
         self.file_url = None
@@ -155,22 +157,21 @@ class CIFARBase:
         plt.tight_layout()
         plt.show()
 
-    def plot_sample(self, plot_data=True, plot_test=False, verbose=False, fig_size=(7, 7), fontsize=12,
+    def plot_sample(self, plot_train=True, plot_test=False, verbose=False, fig_size=(7, 7), fontsize=12,
                     images_per_class=10):
         num_images_per_class = images_per_class
         if self.train.data is None and plot_test is False:
-            self.load_data(train=plot_data, test=plot_test)
-        elif plot_data is False and self.test.data is None:
-            self.load_data(train=plot_data, test=plot_test)
+            self.load_data(train=plot_train, test=plot_test)
+        elif plot_train is False and self.test.data is None:
+            self.load_data(train=plot_train, test=plot_test)
         elif self.train.data is None and self.test.data is None:
-            self.load_data(train=plot_data, test=plot_test)
+            self.load_data(train=plot_train, test=plot_test)
         data_image_nos = []
         test_image_nos = []
-        if plot_data is True:
+        if plot_train is True:
             for class_type in range(self.num_classes):
                 data_class_labels = np.where(self.train.class_labels == class_type)
-                data_class_labels = data_class_labels[0][:num_images_per_class]
-                data_class_labels = data_class_labels.tolist()
+                data_class_labels = data_class_labels[0][:num_images_per_class].tolist()
                 data_image_nos.extend(data_class_labels)
             example_data_images = self.train.data[data_image_nos, :]
             example_data_image_matrix = []
@@ -198,7 +199,7 @@ class CIFARBase:
             print('Plot image matrix shape: ' + str(example_data_image_matrix.shape))
             print('Number of rows: %d' % num_rows)
             print('Number of cols: %d' % num_cols)
-        if plot_data is True:
+        if plot_train is True:
             print('Plotting CIFAR 10 Train Dataset')
             data_fig = plt.figure()
             data_fig.set_figheight(fig_size[0])
