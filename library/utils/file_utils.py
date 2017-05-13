@@ -1,22 +1,18 @@
+# Import necessary libraries
 import urllib.request as url_req
-import os, shutil
-import hashlib
-import tarfile
-import logging
-import sys
+import os, shutil, hashlib, tarfile, sys
 import pickle as cPickle
-import zipfile
-import glob
+import zipfile, glob, logging
 
 log = logging.getLogger(__name__)
 
 
 def mkdir_p(path, verbose=False):
     '''
-
-    :param path:
-    :param verbose:
-    :return:
+    Creates a directory as declared by the path
+    :param path: Directory to be created. Reative/Absolute path can be give
+    :param verbose: If log information is to be printed on console
+    :return: True if directory creation is successful else False
     '''
     if verbose is True:
         print('Creating the directory \'%s\'' %path)
@@ -27,17 +23,23 @@ def mkdir_p(path, verbose=False):
 
 
 def delete_all_files_in_dir(directory):
+    '''
+    Delete all files in a directory
+    :param directory: Name of directory in which all the files have to be deleted
+    :return: True if deletion of all the files was successful else False 
+    '''
     if os.path.exists(directory):
         files = glob.glob(directory+'*')
         for file in files:
             os.remove(file)
+    return True
 
 
 def verify_sha1(filename, sha1, verbose=False):
     '''
-
-    :param filename:
-    :param sha1:
+    Verify the SHA1 of the file 
+    :param filename: Name of the file whose MD5 is to be verified
+    :param md5sum: Actual MD5 value of the file
     :param verbose:
     :return:
     '''
@@ -54,9 +56,9 @@ def verify_sha1(filename, sha1, verbose=False):
 
 def verify_md5(filename, md5sum, verbose=False):
     '''
-
-    :param filename:
-    :param md5sum:
+    Verify the MD5sum of the file 
+    :param filename: Name of the file whose MD5 is to be verified
+    :param md5sum: Actual MD5 value of the file
     :param verbose:
     :return:
     '''
@@ -73,9 +75,9 @@ def verify_md5(filename, md5sum, verbose=False):
 
 def download(url, output_filename, verbose=False):
     '''
-
-    :param url:
-    :param output_filename:
+    Download a file from the web
+    :param url: URL of the file
+    :param output_filename: Filename to which the downloable file is to be written
     :param verbose:
     :return:
     '''
@@ -85,15 +87,13 @@ def download(url, output_filename, verbose=False):
             if verbose is True:
                 print('Tried to download data from %s and '
                       'got http response code %s' % (url, str(page.getcode())))
-            log.warning('Tried to download data from %s and '
-                        'got http response code %s', url, str(page.getcode()))
             return False
         else:
             def _progress(count, block_size, total_size):
                 sys.stdout.write('\r>> Downloading %s. Progress: %.5f%%' % (output_filename,
                                                                  float(count * block_size) / float(total_size) * 100.0))
                 sys.stdout.flush()
-            print('Downloading the CIFAR 10 dataset from %s to %s' %(url, output_filename))
+            print('Downloading the CIFAR 10 dataset from %s to %s' % (url, output_filename))
             downloaded_file, _ = url_req.urlretrieve(url=url, filename=output_filename, reporthook=_progress)
             print()
             if verbose is True:
@@ -102,14 +102,13 @@ def download(url, output_filename, verbose=False):
         return True
     except:
         raise IOError('Error downloading data from %s to %s', url, output_filename)
-        return False
 
 
 def extract(file_name, dest_dir='', verbose=False):
     '''
-
-    :param file_name:
-    :param dest_dir:
+    Extract a compressed file
+    :param file_name: File to uncompressed
+    :param dest_dir: Directory in which the extracted files have to be placed
     :param verbose:
     :return:
     '''
@@ -142,9 +141,9 @@ def extract(file_name, dest_dir='', verbose=False):
 
 def untar(source_filename, destination_dir='.', verbose=False):
     '''
-
-    :param source_filename:
-    :param destination_dir:
+    Untar a file
+    :param source_filename: File to be untarred
+    :param destination_dir: Destination directory to which the files have to be extracted
     :param verbose:
     :return:
     '''
@@ -159,17 +158,20 @@ def untar(source_filename, destination_dir='.', verbose=False):
             return True
     except:
         raise IOError('Error unzipping tarball data from %s to %s', source_filename, destination_dir)
-        return False
 
 
 def unpickle(file, verbose=False):
     '''
-
-    :param file:
-    :param verbose:
+    Unpickle a pickled file using cPickle
+    :param file: File to be unpickled
+    :param verbose: If log information is to be printed onto screen
     :return:
     '''
     fo = open(file, 'rb')
     dict = cPickle.load(fo, encoding ='bytes')
     fo.close()
     return dict
+
+
+if __name__ == 'main':
+    print('file_utils.py')
