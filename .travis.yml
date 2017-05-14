@@ -11,4 +11,4 @@ install:
   - pip install -r requirements.txt
 # command to run tests
 script:
-  - python3 ./library/datasets/cifar/cifar10.py
+  - python3 ./sonapraneeth-a/object-classification/library/datasets/cifar/cifar10.py
