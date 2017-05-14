@@ -235,3 +235,9 @@ class CIFAR10(CIFARBase):
         end = time.time()
         print('Loaded CIFAR 10 Dataset in %.4f seconds' %(end-start))
         return True
+
+
+if __name__ == "__main__":
+	print('Running CIFAR 10 dataset load code')
+
+
