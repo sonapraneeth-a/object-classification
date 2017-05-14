@@ -2,7 +2,7 @@ language: python
 python:
   - "3.6"
 before_script:
- - chmod +x ./script/install_dependencies.sh
+ - chmod +x ./scripts/install_dependencies.sh
 # command to install dependencies
 install:
   - pip install -r requirements.txt
