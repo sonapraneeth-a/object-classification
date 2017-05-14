@@ -6,7 +6,9 @@ install:
   - wget https://repo.continuum.io/archive/Anaconda3-4.3.1-Linux-x86_64.sh
   - chmod +x Anaconda3-4.3.1-Linux-x86_64.sh
   - bash Anaconda3-4.3.1-Linux-x86_64.sh -b -p $HOME/anaconda3
-  - export PATH="$HOME/anaconda3/bin:$PATH"
+  - export PATH="$HOME/anaconda3/bin:$PATH
+  - python --version
+  - pip --version
   - conda install -y opencv=3.1.0
   - pip install -r requirements.txt
 # command to run tests
