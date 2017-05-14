@@ -1,5 +1,9 @@
 # Object Recognition in CIFAR 10 Dataset
 
+Travis Build: [![Build Status](https://travis-ci.org/sonapraneeth-a/object-classification.svg?branch=master)](https://travis-ci.org/sonapraneeth-a/object-classification)
+
+LICENSE: 
+
 Recognition of objects in images
 
 ## Features
