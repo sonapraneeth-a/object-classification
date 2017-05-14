@@ -4,7 +4,6 @@ python:
 before_script:
  - chmod +x ./scripts/install_dependencies.sh
  - chmod +x ./scripts/install_opencv.sh
- - ./scripts/install_opencv.sh
  - ./scripts/install_dependencies.sh
 # command to install dependencies
 install:
