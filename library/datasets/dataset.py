@@ -8,7 +8,8 @@ class Dataset:
         self.preprocess_data = None
         self.augment_data = None
         self.one_hot_labels = None
-        self.class_labels = None
+        self.coarse_labels = None
+        self.fine_labels = None
         self.filenames = None
         self.info = None
         self.class_names = None
