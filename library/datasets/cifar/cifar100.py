@@ -1,11 +1,9 @@
 from library.utils import file_utils
-import os, shutil
+import os, shutil, time
 import numpy as np
-from scipy.misc import toimage
-import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import Grid
-from library.datasets.dataset import Dataset
+from library.preprocessing.data_transform import transform
 from library.datasets.cifar.base import CIFARBase
+import h5py
 
 
 class CIFAR100(CIFARBase):
@@ -75,7 +73,7 @@ class CIFAR100(CIFARBase):
         else:
             if self.verbose is True:
                 print('Directory \'%s\' already exists' % data_directory)
-        ## Step 2: Check if './datasets/cifar100/cifar-10-python.tar.gz' exists
+        ## Step 2: Check if './datasets/cifar100/cifar-100-python.tar.gz' exists
         tar_file = data_directory + 'cifar-100.tar.gz'
         make_tar = False
         if not os.path.exists(tar_file):
@@ -87,7 +85,7 @@ class CIFAR100(CIFARBase):
             make_tar = True
         else:
             if self.verbose is True:
-                print('CIFAR 10 tarfile exists and MD5 sum is verified')
+                print('CIFAR 100 tarfile exists and MD5 sum is verified')
         ## Step 3: Download CIFAR 100 dataset from 'http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz'
         if make_tar is True:
             result = file_utils.download(self.file_url, tar_file, verbose=self.verbose)
@@ -102,7 +100,7 @@ class CIFAR100(CIFARBase):
                 return False
         ## Step 4: Extract the dataset
         make_extract = False
-        batches_directory = data_directory + 'cifar-10-batches'
+        batches_directory = data_directory + 'cifar-100-batches'
         if not os.path.exists(batches_directory):
             make_extract = True
         else:
@@ -142,33 +140,74 @@ class CIFAR100(CIFARBase):
             print(data[0].shape)
         return data, fine_labels, coarse_labels, batch_label, filenames
 
-    def load_train_data(self, split=False, train_validate_split=0.8, data_directory='./tmp/cifar100/'):
-        print('Loading CIFAR 100 Training Dataset')
-        basic_dir_path = data_directory + 'cifar-10-batches/'
+    def load_train_data(self, data_directory='/tmp/cifar100/'):
+        print('Loading CIFAR 100 Train Dataset')
+        basic_dir_path = data_directory + 'cifar-100-batches/'
         data_batch_path = 'data_batch_'
         data_files = []
         data_dict = []
         for i in range(1, 6):
             data_files.append(str(basic_dir_path + data_batch_path + str(i)))
         for file in data_files:
-            print('Unpickling data file: %s' % file)
+            # print('Unpickling data file: %s' % file)
             data_dict.append(file_utils.unpickle(file))
         data_labels = []
         data_images = []
-        for i in range(len(data_dict) - 1):
+        for i in range(len(data_dict)):
             print('Reading unpicked data file: %s' %data_files[i])
-            data, labels, _, _, _ = self.dict_read(data_dict[i])
+            data, labels, _, _ = self.dict_read(data_dict[i])
             data_labels.extend(labels)
             data_images.extend(data)
-        self.train.data['train_images'] = np.array(data_images)
-        self.train.class_labels['train_labels'] = np.array(data_labels)
+        data_images = np.array(data_images)
+        data_labels = np.array(data_labels)
+        preprocessed_images = transform(data_images, transform_method=self.preprocess)
+        if self.make_image is True:
+            images = []
+            for fig_num in range(preprocessed_images.shape[0]):
+                fig = preprocessed_images[fig_num, :]
+                img = self.convert_images(fig, type=self.image_mode)
+                images.append(img)
+            images = np.array(images)
+        if self.train_validate_split is None:
+            self.train.data = np.array(preprocessed_images[:self.num_images, :])
+            if self.make_image is True:
+                self.train.images = np.array(images[:self.num_images, :])
+            self.train.class_labels = np.array(data_labels[:self.num_images])
+            self.train.class_names = np.array(list(map(lambda x: self.classes[x], self.train.class_labels)))
+        else:
+            print('Requested to use only %d images' %self.num_images)
+            self.train.data = np.array(preprocessed_images[:self.num_train_images, :])
+            if self.make_image is True:
+                self.train.images = np.array(images[:self.num_train_images, :])
+            self.train.class_labels = np.array(data_labels[:self.num_train_images])
+            self.train.class_names = np.array(list(map(lambda x: self.classes[x], self.train.class_labels)))
+            self.validate.data = \
+                np.array(preprocessed_images[self.num_train_images:self.num_train_images+self.num_validate_images, :])
+            if self.make_image is True:
+                self.validate.images = np.array(images[self.num_train_images:self.num_train_images+self.num_validate_images, :])
+            self.validate.class_labels = \
+                np.array(data_labels[self.num_train_images:self.num_train_images+self.num_validate_images])
+            self.validate.class_names = np.array(list(map(lambda x: self.classes[x], self.validate.class_labels)))
+        if self.one_hot_encode is True:
+            self.convert_one_hot_encoding(self.train.class_labels, data_type='train')
+            if self.train_validate_split is not None:
+                self.convert_one_hot_encoding(self.validate.class_labels, data_type='validate')
+        if self.save_h5py != '':
+            h5f = h5py.File(self.save_h5py, 'a')
+            h5f.create_dataset('train_dataset', data=self.train.data, compression="gzip", compression_opts=9)
+            print('Written CIFAR 100 train dataset to file: %s' % self.save_h5py)
+            h5f.close()
         del data_labels
         del data_images
+        del preprocessed_images
+        if self.make_image is True:
+            del images
+        print()
         return True
 
-    def load_test_data(self, data_directory='/tmp/cifar100/'):
-        print('Loading CIFAR 100 Test Dataset')
-        basic_dir_path = data_directory + 'cifar-10-batches/'
+    def load_test_data(self, data_directory='/tmp/cifar10/'):
+        print('Loading CIFAR 10 Test Dataset')
+        basic_dir_path = data_directory + 'cifar-100-batches/'
         test_batch_path = 'test_batch'
         test_files = [str(basic_dir_path + test_batch_path)]
         print('Unpickling test file: %s' % test_files[0])
@@ -179,18 +218,47 @@ class CIFAR100(CIFARBase):
         test_labels.extend(self.dict_read(test_dict[-1])[1])
         test_images.extend(self.dict_read(test_dict[-1])[0])
         test_images = np.array(test_images)
+        preprocessed_images = transform(test_images, transform_method=self.preprocess)
+        if self.make_image is True:
+            images = []
+            for fig_num in range(preprocessed_images.shape[0]):
+                fig = preprocessed_images[fig_num, :]
+                img = self.convert_images(fig, type=self.image_mode)
+                images.append(img)
+            images = np.array(images)
         test_labels = np.array(test_labels)
-        self.data['test_images'] = np.array(test_images)
-        self.data['test_labels'] = np.array(test_labels)
+        self.test.data = np.array(preprocessed_images[:self.num_test_images])
+        if self.make_image is True:
+            self.test.images = np.array(images[:self.num_test_images, :])
+        self.test.class_labels = np.array(test_labels[:self.num_test_images])
+        self.test.class_names = np.array(list(map(lambda x: self.classes[x], self.test.class_labels)))
+        if self.one_hot_encode is True:
+            self.convert_one_hot_encoding(self.test.class_labels, data_type='test')
+        if self.save_h5py != '':
+            h5f = h5py.File(self.save_h5py, 'a')
+            h5f.create_dataset('test_dataset', data=self.test.data, compression="gzip", compression_opts=9)
+            print('Written CIFAR 10 test dataset to file: %s' % self.save_h5py)
+            h5f.close()
         del test_labels
         del test_images
+        del preprocessed_images
+        if self.make_image is True:
+            del images
+        print()
         return True
 
     def load_data(self, train=True, test=True, data_directory='/tmp/cifar100/'):
-        print('Loading CIFAR 100 dataset')
+        print('Loading CIFAR 100 Dataset')
+        start = time.time()
         self.download_and_extract_data(data_directory)
         if train is True:
+            print('Loading %d train images' %self.num_train_images)
+            if self.train_validate_split is not None:
+                print('Loading %d validate images' % self.num_validate_images)
             self.load_train_data(data_directory=data_directory)
         if test is True:
+            print('Loading %d test images' % self.num_test_images)
             self.load_test_data(data_directory=data_directory)
+        end = time.time()
+        print('Loaded CIFAR 10 Dataset in %.4f seconds' %(end-start))
         return True

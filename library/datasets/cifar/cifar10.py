@@ -113,7 +113,7 @@ class CIFAR10(CIFARBase):
             print(data[0].shape)
         return data, labels, batch_label, filenames
 
-    def load_train_data(self, split=False, data_directory='/tmp/cifar10/'):
+    def load_train_data(self, data_directory='/tmp/cifar10/'):
         print('Loading CIFAR 10 Training Dataset')
         basic_dir_path = data_directory + 'cifar-10-batches/'
         data_batch_path = 'data_batch_'
@@ -238,6 +238,6 @@ class CIFAR10(CIFARBase):
 
 
 if __name__ == "__main__":
-	print('Running CIFAR 10 dataset load code')
+    print('Running CIFAR 10 dataset load code')
 
 
