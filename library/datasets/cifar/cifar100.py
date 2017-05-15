@@ -86,7 +86,7 @@ class CIFAR100(CIFARBase):
         else:
             if self.verbose is True:
                 print('CIFAR 100 tarfile exists and MD5 sum is verified')
-        ## Step 3: Download CIFAR 100 dataset from 'http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz'
+        ## Step 3: Download CIFAR 100 dataset from 'http://www.cs.toronto.edu/~kriz/cifar-100-python.tar.gz'
         if make_tar is True:
             result = file_utils.download(self.file_url, tar_file, verbose=self.verbose)
             if result is False:
@@ -115,7 +115,7 @@ class CIFAR100(CIFARBase):
         if make_extract is True:
             print('Extracting file %s to %s' %(tar_file,batches_directory))
             result = file_utils.extract(tar_file)
-            shutil.move('./cifar-10-batches-py', batches_directory)
+            shutil.move('./cifar-100-python', batches_directory)
             if result is False:
                 if self.verbose is True:
                     print('Extraction of CIFAR 100 dataset failed')
@@ -126,6 +126,7 @@ class CIFAR100(CIFARBase):
         return True
 
     def dict_read(self, dict_file):
+        print(dict_file.keys())
         fine_labels = dict_file[b'fine_labels']
         coarse_labels = dict_file[b'coarse_labels']
         data = dict_file[b'data']
@@ -143,23 +144,18 @@ class CIFAR100(CIFARBase):
     def load_train_data(self, data_directory='/tmp/cifar100/'):
         print('Loading CIFAR 100 Train Dataset')
         basic_dir_path = data_directory + 'cifar-100-batches/'
-        data_batch_path = 'data_batch_'
-        data_files = []
-        data_dict = []
-        for i in range(1, 6):
-            data_files.append(str(basic_dir_path + data_batch_path + str(i)))
-        for file in data_files:
-            # print('Unpickling data file: %s' % file)
-            data_dict.append(file_utils.unpickle(file))
-        data_labels = []
-        data_images = []
-        for i in range(len(data_dict)):
-            print('Reading unpicked data file: %s' %data_files[i])
-            data, labels, _, _ = self.dict_read(data_dict[i])
-            data_labels.extend(labels)
-            data_images.extend(data)
+        data_batch_path = 'train'
+        data_files = [basic_dir_path + data_batch_path]
+        data_dict = [file_utils.unpickle(data_files[0])]
+        print('Reading unpicked data file: %s' % data_files[0])
+        data, fine_labels, coarse_labels, _, _ = self.dict_read(data_dict[0])
+        data_fine_labels = fine_labels
+        data_coarse_labels = coarse_labels
+        data_images = data
         data_images = np.array(data_images)
-        data_labels = np.array(data_labels)
+        data_fine_labels = np.array(data_fine_labels)
+        data_coarse_labels = np.array(data_coarse_labels)
+        print('Success')
         preprocessed_images = transform(data_images, transform_method=self.preprocess)
         if self.make_image is True:
             images = []
@@ -172,21 +168,29 @@ class CIFAR100(CIFARBase):
             self.train.data = np.array(preprocessed_images[:self.num_images, :])
             if self.make_image is True:
                 self.train.images = np.array(images[:self.num_images, :])
-            self.train.class_labels = np.array(data_labels[:self.num_images])
-            self.train.class_names = np.array(list(map(lambda x: self.classes[x], self.train.class_labels)))
+            self.train.fine_labels = np.array(data_fine_labels[:self.num_images])
+            self.train.coarse_labels = np.array(data_coarse_labels[:self.num_images])
+
+            self.train.fine_class_names = np.array(list(map(lambda x: self.fine_classes[x], self.train.fine_labels)))
+            self.train.coarse_class_names = np.array(list(map(lambda x: self.coarse_classes[x], self.train.coarse_labels)))
+
         else:
             print('Requested to use only %d images' %self.num_images)
             self.train.data = np.array(preprocessed_images[:self.num_train_images, :])
             if self.make_image is True:
                 self.train.images = np.array(images[:self.num_train_images, :])
-            self.train.class_labels = np.array(data_labels[:self.num_train_images])
+            self.train.fine_labels = np.array(data_fine_labels[:self.num_train_images])
+            self.train.coarse_labels = np.array(data_coarse_labels[:self.num_train_images])
+
             self.train.class_names = np.array(list(map(lambda x: self.classes[x], self.train.class_labels)))
             self.validate.data = \
                 np.array(preprocessed_images[self.num_train_images:self.num_train_images+self.num_validate_images, :])
             if self.make_image is True:
                 self.validate.images = np.array(images[self.num_train_images:self.num_train_images+self.num_validate_images, :])
-            self.validate.class_labels = \
-                np.array(data_labels[self.num_train_images:self.num_train_images+self.num_validate_images])
+            self.validate.fine_labels = \
+                np.array(data_fine_labels[self.num_train_images:self.num_train_images+self.num_validate_images])
+            self.validate.coarse_labels = \
+                np.array(data_coarse_labels[self.num_train_images:self.num_train_images + self.num_validate_images])
             self.validate.class_names = np.array(list(map(lambda x: self.classes[x], self.validate.class_labels)))
         if self.one_hot_encode is True:
             self.convert_one_hot_encoding(self.train.class_labels, data_type='train')
@@ -205,8 +209,8 @@ class CIFAR100(CIFARBase):
         print()
         return True
 
-    def load_test_data(self, data_directory='/tmp/cifar10/'):
-        print('Loading CIFAR 10 Test Dataset')
+    def load_test_data(self, data_directory='/tmp/cifar100/'):
+        print('Loading CIFAR 100 Test Dataset')
         basic_dir_path = data_directory + 'cifar-100-batches/'
         test_batch_path = 'test_batch'
         test_files = [str(basic_dir_path + test_batch_path)]
@@ -237,7 +241,7 @@ class CIFAR100(CIFARBase):
         if self.save_h5py != '':
             h5f = h5py.File(self.save_h5py, 'a')
             h5f.create_dataset('test_dataset', data=self.test.data, compression="gzip", compression_opts=9)
-            print('Written CIFAR 10 test dataset to file: %s' % self.save_h5py)
+            print('Written CIFAR 100 test dataset to file: %s' % self.save_h5py)
             h5f.close()
         del test_labels
         del test_images
@@ -260,5 +264,5 @@ class CIFAR100(CIFARBase):
             print('Loading %d test images' % self.num_test_images)
             self.load_test_data(data_directory=data_directory)
         end = time.time()
-        print('Loaded CIFAR 10 Dataset in %.4f seconds' %(end-start))
+        print('Loaded CIFAR 100 Dataset in %.4f seconds' %(end-start))
         return True

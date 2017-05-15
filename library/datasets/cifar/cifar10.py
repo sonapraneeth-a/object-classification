@@ -145,26 +145,26 @@ class CIFAR10(CIFARBase):
             self.train.data = np.array(preprocessed_images[:self.num_images, :])
             if self.make_image is True:
                 self.train.images = np.array(images[:self.num_images, :])
-            self.train.class_labels = np.array(data_labels[:self.num_images])
-            self.train.class_names = np.array(list(map(lambda x: self.classes[x], self.train.class_labels)))
+            self.train.coarse_labels = np.array(data_labels[:self.num_images])
+            self.train.coarse_class_names = np.array(list(map(lambda x: self.classes[x], self.train.coarse_labels)))
         else:
             print('Requested to use only %d images' %self.num_images)
             self.train.data = np.array(preprocessed_images[:self.num_train_images, :])
             if self.make_image is True:
                 self.train.images = np.array(images[:self.num_train_images, :])
-            self.train.class_labels = np.array(data_labels[:self.num_train_images])
-            self.train.class_names = np.array(list(map(lambda x: self.classes[x], self.train.class_labels)))
+            self.train.coarse_labels = np.array(data_labels[:self.num_train_images])
+            self.train.coarse_class_names = np.array(list(map(lambda x: self.classes[x], self.train.coarse_labels)))
             self.validate.data = \
                 np.array(preprocessed_images[self.num_train_images:self.num_train_images+self.num_validate_images, :])
             if self.make_image is True:
                 self.validate.images = np.array(images[self.num_train_images:self.num_train_images+self.num_validate_images, :])
-            self.validate.class_labels = \
+            self.validate.coarse_labels = \
                 np.array(data_labels[self.num_train_images:self.num_train_images+self.num_validate_images])
-            self.validate.class_names = np.array(list(map(lambda x: self.classes[x], self.validate.class_labels)))
+            self.validate.coarse_class_names = np.array(list(map(lambda x: self.classes[x], self.validate.coarse_labels)))
         if self.one_hot_encode is True:
-            self.convert_one_hot_encoding(self.train.class_labels, data_type='train')
+            self.convert_one_hot_encoding(self.train.coarse_labels, data_type='train')
             if self.train_validate_split is not None:
-                self.convert_one_hot_encoding(self.validate.class_labels, data_type='validate')
+                self.convert_one_hot_encoding(self.validate.coarse_labels, data_type='validate')
         if self.save_h5py != '':
             h5f = h5py.File(self.save_h5py, 'a')
             h5f.create_dataset('train_dataset', data=self.train.data, compression="gzip", compression_opts=9)
@@ -203,10 +203,10 @@ class CIFAR10(CIFARBase):
         self.test.data = np.array(preprocessed_images[:self.num_test_images])
         if self.make_image is True:
             self.test.images = np.array(images[:self.num_test_images, :])
-        self.test.class_labels = np.array(test_labels[:self.num_test_images])
-        self.test.class_names = np.array(list(map(lambda x: self.classes[x], self.test.class_labels)))
+        self.test.coarse_labels = np.array(test_labels[:self.num_test_images])
+        self.test.coarse_class_names = np.array(list(map(lambda x: self.classes[x], self.test.coarse_labels)))
         if self.one_hot_encode is True:
-            self.convert_one_hot_encoding(self.test.class_labels, data_type='test')
+            self.convert_one_hot_encoding(self.test.coarse_labels, data_type='test')
         if self.save_h5py != '':
             h5f = h5py.File(self.save_h5py, 'a')
             h5f.create_dataset('test_dataset', data=self.test.data, compression="gzip", compression_opts=9)
